@@ -3,6 +3,7 @@
 inputs/*
 build
 output/
+trainingdata/
 
 # Logs
 logs/

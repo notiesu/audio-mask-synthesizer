@@ -1,0 +1,7 @@
+{
+    "input": {
+        "inference_flag": false,
+        "data_dir": "/runpod-volume/$TRAIN_DATA_PATH",
+        "run_name": "$RUN_NAME"
+    }
+}

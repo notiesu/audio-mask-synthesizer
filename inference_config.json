@@ -1,0 +1,10 @@
+{
+    "input": {
+        "source": "/runpod-volume//",
+        "target": "/runpod-volume//",
+        "output": "/runpod-volume//output",
+        "inference_flag": true,
+        "f0-condition": true,
+        "diffusion-steps": 50
+    }
+}

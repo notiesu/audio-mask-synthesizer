@@ -22,6 +22,7 @@ else
     TARGET_FILE="inputs/$2"
 fi
 
+MODEL_DIR=$3
 TMP_FOLDER="tmp/$(date +%s)-$RANDOM"
 
 #Upload input files to S3 tmp folder
@@ -40,10 +41,13 @@ RESPONSE=$(curl -s -X POST "https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/run" \
     -H "Content-Type: application/json" \
     -d "{
         \"input\": {
-          \"source_path\": \"/runpod-volume/$TMP_FOLDER/$(basename $SOURCE_FILE)\",
-          \"target_path\": \"/runpod-volume/$TMP_FOLDER/$(basename $TARGET_FILE)\",
-          \"output_path\": \"/runpod-volume/$TMP_FOLDER/output\",
-          \"inference_flag\": true
+          \"source\": \"/runpod-volume/$TMP_FOLDER/$(basename $SOURCE_FILE)\",
+          \"target\": \"/runpod-volume/$TMP_FOLDER/$(basename $TARGET_FILE)\",
+          \"output\": \"/runpod-volume/$TMP_FOLDER/output\",
+          \"inference_flag\": true,
+          \"diffusion-steps\": 50,
+          \"f0-condition\": true,
+          \"auto-f0-adjust\": true
         }
     }"
 )
