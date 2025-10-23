@@ -1,0 +1,29 @@
+from pydub import AudioSegment
+import os
+import argparse
+
+OUTPUT_FILE = "combined.wav"
+TARGET_SR = 44100  # target sample rate (Hz)
+
+def main(input_dir):
+    files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
+    base = None
+
+    for f in sorted(files):
+        path = os.path.join(input_dir, f)
+        audio = AudioSegment.from_file(path).set_frame_rate(TARGET_SR).set_channels(1)
+
+        if base is None:
+            base = audio
+        else:
+            base = base.overlay(audio)  # mix on top
+
+    base.export(OUTPUT_FILE, format="wav")
+    print(f"Saved {OUTPUT_FILE}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Combine WAV files with normalized sample rates.")
+    parser.add_argument("--input_dir", type=str, required=True, help="Directory containing input WAV files.")
+    args = parser.parse_args()
+
+    main(args.input_dir)
