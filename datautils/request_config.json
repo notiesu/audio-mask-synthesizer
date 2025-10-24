@@ -1,0 +1,11 @@
+{
+  "input": {
+    "source": "/runpod-volume/tmp_folder/source.wav",
+    "target": "/runpod-volume/tmp_folder/target.wav",
+    "output": "/runpod-volume/tmp_folder/output",
+    "inference_flag": true,
+    "diffusion-steps": 50,
+    "f0-condition": true,
+    "auto-f0-adjust": true
+  }
+}

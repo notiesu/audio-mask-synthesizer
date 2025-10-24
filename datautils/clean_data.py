@@ -34,7 +34,7 @@ def prevent_clipping(audio):
         audio = audio.apply_gain(-audio.max_dBFS)
     return audio
 
-def main(input_dir, output_dir):
+def clean_data(input_dir, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     for file in os.listdir(input_dir):
@@ -108,4 +108,4 @@ if __name__ == "__main__":
     parser.add_argument("output_dir", help="Directory to save cleaned audio files")
     args = parser.parse_args()
 
-    main(args.input_dir, args.output_dir)
+    clean_data(args.input_dir, args.output_dir)

@@ -5,7 +5,7 @@ import argparse
 OUTPUT_FILE = "combined.wav"
 TARGET_SR = 44100  # target sample rate (Hz)
 
-def main(input_dir):
+def combine_wavs(input_dir, output_file=OUTPUT_FILE):
     files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
     base = None
 
@@ -26,4 +26,4 @@ if __name__ == "__main__":
     parser.add_argument("--input_dir", type=str, required=True, help="Directory containing input WAV files.")
     args = parser.parse_args()
 
-    main(args.input_dir)
+    combine_wavs(args.input_dir)
