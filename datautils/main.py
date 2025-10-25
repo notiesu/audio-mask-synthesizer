@@ -35,7 +35,7 @@ STEMS_PATH = f"{TEMP_DIR}/stems"
 YT_WAV_OUTPUT_DIR = f"{TEMP_DIR}/yt_audio.wav" #only directory
 YT_WAV_OUTPUT_NAME = "yt_audio"
 OUTPUT_S3_PATH = f"s3://{RUNPOD_NETWORK_BUCKET}/{TEMP_DIR}/output"
-LOCAL_VC_OUTPUT_PATH = f"{TEMP_DIR}/stems/vocals.wav"
+LOCAL_VC_OUTPUT_PATH = f"{TEMP_DIR}/stems"
 
 DEBUG_MODE = False
 
@@ -161,29 +161,46 @@ def perform_voice_conversion(source_s3_path: str, target_s3_path: str, output_s3
     return output_s3_path
 
 
-def download_from_s3(s3_path: str, local_path: str):
-    s3 = boto3.client(
-        "s3",
-        region_name=REGION,
-        endpoint_url=AWS_ENDPOINT_URL,
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    )
-
-    bucket_name = RUNPOD_NETWORK_BUCKET
-    key = s3_path.replace(f"s3://{bucket_name}/", "")
-
-    # if os.path.exists(local_path):
-    #     print(f"File already exists at {local_path}. Overwriting...")
-
+def download_from_s3_folder(s3_folder_path: str, local_folder_path: str):
     try:
-        print(f"Downloading {s3_path} to {local_path}")
-        s3.download_file(bucket_name, key, local_path)
-    except ClientError as e:
-        print(f"Error downloading {s3_path}: {e}")
-        sys.exit(1)
+        # Initialize the S3 client
+        s3 = boto3.client(
+            "s3",
+            region_name=REGION,
+            endpoint_url=AWS_ENDPOINT_URL,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        )
 
-    print(f"Downloaded file to: {local_path}")
+        os.makedirs(local_folder_path, exist_ok=True)
+
+        # Parse the bucket name and prefix from the S3 folder path
+        if not s3_folder_path.startswith("s3://"):
+            raise ValueError("Invalid S3 folder path. Must start with 's3://'.")
+        
+        s3_path_parts = s3_folder_path[5:].split("/", 1)
+        bucket_name = s3_path_parts[0]
+        prefix = s3_path_parts[1] if len(s3_path_parts) > 1 else ""
+
+        # List objects in the S3 folder
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        if "Contents" not in response:
+            print(f"No files found in S3 folder: {s3_folder_path}")
+            return
+
+        # Download each file to the local folder
+        for obj in response["Contents"]:
+            s3_key = obj["Key"]
+            file_name = os.path.basename(s3_key)
+            local_file_path = os.path.join(local_folder_path, file_name)
+
+            print(f"Downloading {s3_key} to {local_file_path}")
+            s3.download_file(bucket_name, s3_key, local_file_path)
+
+        print(f"Downloaded all files from {s3_folder_path} to {local_folder_path}")
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 def main(input_url: str, input_target_voice_path: str = "default_voice"):
     #download from youtube
@@ -208,6 +225,7 @@ def main(input_url: str, input_target_voice_path: str = "default_voice"):
     print(f"Extracted stems to: {STEMS_PATH}")
 
     #TODO clean data
+    
     #upload vocal and target voice to s3
     vocal_path = os.path.join(STEMS_PATH, "SOURCE.wav")
 
@@ -218,8 +236,15 @@ def main(input_url: str, input_target_voice_path: str = "default_voice"):
     perform_voice_conversion(source_s3_path, target_s3_path, output_s3_path)
 
     #download output from s3
-    download_from_s3(os.path.join(output_s3_path, "vocals_converted.wav"), LOCAL_VC_OUTPUT_PATH)
-
+    download_from_s3_folder(f"s3://{RUNPOD_NETWORK_BUCKET}/{TEMP_DIR}/output", STEMS_PATH)
+    
+    # Move SOURCE.wav to another subfolder instead of deleting
+    archive_folder = os.path.join(STEMS_PATH, "archive")
+    os.makedirs(archive_folder, exist_ok=True)
+    os.rename(
+        os.path.join(STEMS_PATH, "SOURCE.wav"),
+        os.path.join(archive_folder, "SOURCE.wav")
+    )
     #combine stems
     combine_wavs(STEMS_PATH, output_file="final_output.wav")
 
