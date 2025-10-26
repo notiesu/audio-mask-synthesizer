@@ -18,7 +18,7 @@ def combine_wavs(input_dir, output_file=OUTPUT_FILE):
         else:
             base = base.overlay(audio)  # mix on top
 
-    base.export(OUTPUT_FILE, format="wav")
+    base.export(output_file, format="wav")
     print(f"Saved {OUTPUT_FILE}")
 
 if __name__ == "__main__":

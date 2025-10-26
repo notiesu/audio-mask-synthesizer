@@ -40,6 +40,7 @@ OUTPUT_S3_PATH = f"s3://{RUNPOD_NETWORK_BUCKET}/{TEMP_DIR}/output"
 LOCAL_VC_OUTPUT_PATH = f"{TEMP_DIR}/stems"
 
 DEBUG_MODE = False
+TARGET_PITCH_SHIFT = 0  # in octaves
 
 #request configs
 with open("request_config.json", "r") as f:
@@ -240,17 +241,19 @@ def main(input_url: str, input_target_voice_path: str = "default_voice"):
 
     vocal_path = os.path.join(STEMS_PATH, "vocals.wav")
     #create a copy to tmp/archive just in case
-    os.makedirs(os.path.join(TEMP_DIR, "archive"), exist_ok=True)
-    shutil.copy2(input_target_voice_path, os.path.join(TEMP_DIR, "archive", "TARGET.wav"))
-    shutil.copy2(vocal_path, os.path.join(TEMP_DIR, "archive", "SOURCE.wav"))
+    os.makedirs(os.path.join(TEMP_DIR, "inputs"), exist_ok=True)
+    shutil.copy2(input_target_voice_path, os.path.join(TEMP_DIR, "inputs", "TARGET.wav"))
+    shutil.copy2(vocal_path, os.path.join(TEMP_DIR, "inputs", "SOURCE.wav"))
 
-    
-    clean_data(input_target_voice_path, trim_silence=True)
-    clean_data(vocal_path, trim_silence=False)
+    #perform operations on these copies
+    source_input_path = os.path.join(TEMP_DIR, "inputs", "SOURCE.wav")
+    target_input_path = os.path.join(TEMP_DIR, "inputs", "TARGET.wav")
+
+    clean_data(target_input_path, trim_silence=True, pitch_shift=TARGET_PITCH_SHIFT)
+    clean_data(source_input_path, trim_silence=False)
     #upload vocal and target voice to s3
-    
 
-    source_s3_path, target_s3_path = upload_files_to_s3(vocal_path, input_target_voice_path, tmp_folder=TEMP_DIR)
+    source_s3_path, target_s3_path = upload_files_to_s3(source_input_path, target_input_path, tmp_folder=TEMP_DIR)
 
     #once uploaded run voice conversion inference
     output_s3_path = os.path.join("runpod-volume", TEMP_DIR, "output")
@@ -260,11 +263,11 @@ def main(input_url: str, input_target_voice_path: str = "default_voice"):
     download_from_s3_folder(f"s3://{RUNPOD_NETWORK_BUCKET}/{TEMP_DIR}/output", STEMS_PATH)
     
     # Move SOURCE.wav to another subfolder instead of deleting
-    archive_folder = os.path.join(STEMS_PATH, "archive")
+    archive_folder = os.path.join(STEMS_PATH, "inputs")
     os.makedirs(archive_folder, exist_ok=True)
     os.rename(
-        os.path.join(STEMS_PATH, "SOURCE.wav"),
-        os.path.join(archive_folder, "SOURCE.wav")
+        os.path.join(STEMS_PATH, "vocals.wav"),
+        os.path.join(archive_folder, "SOURCE_VOCALS.wav")
     )
     #combine stems
     combine_wavs(STEMS_PATH, output_file="final_output.wav")
@@ -278,11 +281,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Voice conversion pipeline")
     parser.add_argument("--yt_url", type=str, help="YouTube URL of the source audio")
     parser.add_argument("--target", type=str, help="Path to the target voice WAV file")
+    parser.add_argument("--shift_pitch", type=float, default=0, help="Pitch shift of target voice in semitones")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
 
     args = parser.parse_args()
 
     # Set debug mode if specified
     DEBUG_MODE = args.debug
-
+    TARGET_PITCH_SHIFT = args.shift_pitch
     main(input_url=args.yt_url, input_target_voice_path=args.target)

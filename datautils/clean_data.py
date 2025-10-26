@@ -34,12 +34,16 @@ def prevent_clipping(audio):
         audio = audio.apply_gain(-audio.max_dBFS)
     return audio
 
-def clean_data(input_file, trim_silence=True):
+def clean_data(input_file, trim_silence=True, pitch_shift=0):
     audio = AudioSegment.from_wav(input_file)
 
     # Force mono + target sample rate
     audio = audio.set_channels(1)
     audio = audio.set_frame_rate(TARGET_SR)
+
+    # Apply pitch shift
+    if pitch_shift != 0:
+        audio = shift_pitch(audio, pitch_shift)
 
     # Normalize loudness
     audio = match_target_amplitude(audio, TARGET_DBFS)
@@ -89,6 +93,11 @@ def trim_audio_silence(audio):
         audio = sum(processed_chunks)
 
     return audio
+
+def shift_pitch(audio, semitones):
+    new_sample_rate = int(audio.frame_rate * (2.0 ** (semitones / 12.0)))
+    pitched_audio = audio._spawn(audio.raw_data, overrides={'frame_rate': new_sample_rate})
+    return pitched_audio.set_frame_rate(audio.frame_rate)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Clean, split, and recombine audio files.")
