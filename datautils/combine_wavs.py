@@ -19,7 +19,7 @@ def combine_wavs(input_dir, output_file=OUTPUT_FILE):
             base = base.overlay(audio)  # mix on top
 
     base.export(output_file, format="wav")
-    print(f"Saved {OUTPUT_FILE}")
+    print(f"Saved {output_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Combine WAV files with normalized sample rates.")

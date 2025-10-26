@@ -249,7 +249,7 @@ def main(input_url: str, input_target_voice_path: str = "default_voice"):
     source_input_path = os.path.join(TEMP_DIR, "inputs", "SOURCE.wav")
     target_input_path = os.path.join(TEMP_DIR, "inputs", "TARGET.wav")
 
-    clean_data(target_input_path, trim_silence=True, pitch_shift=TARGET_PITCH_SHIFT)
+    clean_data(target_input_path, trim_silence=True)
     clean_data(source_input_path, trim_silence=False)
     #upload vocal and target voice to s3
 
