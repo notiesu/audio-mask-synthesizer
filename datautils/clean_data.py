@@ -34,73 +34,61 @@ def prevent_clipping(audio):
         audio = audio.apply_gain(-audio.max_dBFS)
     return audio
 
-def clean_data(input_dir, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
+def clean_data(input_file, trim_silence=True):
+    audio = AudioSegment.from_wav(input_file)
 
-    for file in os.listdir(input_dir):
-        if not file.endswith(".wav"):
+    # Force mono + target sample rate
+    audio = audio.set_channels(1)
+    audio = audio.set_frame_rate(TARGET_SR)
+
+    # Normalize loudness
+    audio = match_target_amplitude(audio, TARGET_DBFS)
+
+    # Apply filters
+    audio = apply_filters(audio)
+
+    # Optional denoise (skip if super clean data)
+    # audio = reduce_noise(audio)
+
+    # Prevent clipping
+    audio = prevent_clipping(audio)
+
+    if trim_silence:
+        audio = trim_audio_silence(audio)
+
+    # Overwrite the input file
+    audio.export(input_file, format="wav")
+    print(f"Processed and saved: {input_file}")
+
+
+def trim_audio_silence(audio):
+    # Split audio by silence
+    chunks = silence.split_on_silence(
+        audio,
+        min_silence_len=MIN_SILENCE_LEN,
+        silence_thresh=SILENCE_THRESH,
+        keep_silence=200
+    )
+
+    processed_chunks = []
+    for chunk in chunks:
+        # Trim leading/trailing silence manually
+        chunk = chunk.strip_silence(silence_thresh=SILENCE_THRESH)
+
+        if len(chunk) < 300:
             continue
 
-        path = os.path.join(input_dir, file)
-        audio = AudioSegment.from_wav(path)
+        # Re-normalize each chunk
+        chunk = match_target_amplitude(chunk, TARGET_DBFS)
+        chunk = prevent_clipping(chunk)
 
-        # Force mono + target sample rate
-        audio = audio.set_channels(1)
-        audio = audio.set_frame_rate(TARGET_SR)
+        processed_chunks.append(chunk)
 
-        # Normalize loudness
-        audio = match_target_amplitude(audio, TARGET_DBFS)
+    # Recombine processed chunks in order
+    if processed_chunks:
+        audio = sum(processed_chunks)
 
-        # Apply filters
-        audio = apply_filters(audio)
-
-        # Optional denoise (skip if super clean data)
-        audio = reduce_noise(audio)
-
-        # Prevent clipping
-        audio = prevent_clipping(audio)
-
-        if file.startswith("SOURCE"):
-            out_path = os.path.join(output_dir, file)
-            audio.export(out_path, format="wav")
-            print(f"Saved {out_path}")
-        else:
-            # Split audio by silence
-            chunks = silence.split_on_silence(
-                audio,
-                min_silence_len=MIN_SILENCE_LEN,
-                silence_thresh=SILENCE_THRESH,
-                keep_silence=200
-            )
-
-            processed_chunks = []
-            for i, chunk in enumerate(chunks):
-                # Trim leading/trailing silence manually
-                chunk = chunk.strip_silence(silence_thresh=SILENCE_THRESH)
-
-                if len(chunk) < 300:
-                    continue
-
-                # Re-normalize each chunk
-                chunk = match_target_amplitude(chunk, TARGET_DBFS)
-                chunk = prevent_clipping(chunk)
-
-                out_path = os.path.join(output_dir, f"{file[:-4]}_{i}.wav")
-                chunk.export(out_path, format="wav")
-                print(f"Saved {out_path}")
-
-                processed_chunks.append(chunk)
-
-            # Recombine processed chunks in order
-            if processed_chunks:
-                combined_audio = sum(processed_chunks)
-                combined_out_path = os.path.join(output_dir, f"{file[:-4]}_combined.wav")
-                combined_audio.export(combined_out_path, format="wav")
-                print(f"Saved combined audio: {combined_out_path}")
-
-        print(f"{file}: {len(audio)/1000:.2f}s processed")
-
-    print("Cleaning complete.")
+    return audio
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Clean, split, and recombine audio files.")

@@ -8,13 +8,15 @@ import sys
 from dotenv import load_dotenv
 from botocore.exceptions import ClientError
 import json
-from time import sleep
+from time import sleep, time
+import argparse
+import shutil
 
 #data utils
 from combine_wavs import combine_wavs
 from clean_data import clean_data
 from extract_stems import extract_stems
-import argparse
+
 
 #### CONFIG ###
 load_dotenv()
@@ -205,6 +207,9 @@ def download_from_s3_folder(s3_folder_path: str, local_folder_path: str):
 def main(input_url: str, input_target_voice_path: str = "default_voice"):
     #download from youtube
     #check for existence of input_target_voice_path
+
+    #keep track of runtime
+    start_time = time()
     if not os.path.exists(input_target_voice_path):
         print(f"Error: Target voice file {input_target_voice_path} does not exist.")
         sys.exit(1)
@@ -216,18 +221,34 @@ def main(input_url: str, input_target_voice_path: str = "default_voice"):
         output_wav = youtube_to_wav(input_url, YT_WAV_OUTPUT_DIR)
 
     print(f"Downloaded and converted YouTube audio to WAV: {output_wav}")
+    #print time
+    end_time_dl = time()
+    elapsed_time_dl = end_time_dl - start_time
+    print(f"Time taken for download and conversion: {elapsed_time_dl:.2f} seconds")
     #check for existence of stems in debug mode
     if DEBUG_MODE:
         if os.path.exists(STEMS_PATH):
             print(f"Debug mode: Using existing stems at {STEMS_PATH}")
     else:
-        extract_stems(f"{output_wav}.wav", STEMS_PATH)
+        extract_stems(output_wav, STEMS_PATH)
     print(f"Extracted stems to: {STEMS_PATH}")
+    #print time
+    end_time_stems = time()
+    elapsed_time_stems = end_time_stems - end_time_dl
+    print(f"Time taken for stem extraction: {elapsed_time_stems:.2f} seconds")
+    #path to vocal stem
 
-    #TODO clean data
+    vocal_path = os.path.join(STEMS_PATH, "vocals.wav")
+    #create a copy to tmp/archive just in case
+    os.makedirs(os.path.join(TEMP_DIR, "archive"), exist_ok=True)
+    shutil.copy2(input_target_voice_path, os.path.join(TEMP_DIR, "archive", "TARGET.wav"))
+    shutil.copy2(vocal_path, os.path.join(TEMP_DIR, "archive", "SOURCE.wav"))
+
     
+    clean_data(input_target_voice_path, trim_silence=True)
+    clean_data(vocal_path, trim_silence=False)
     #upload vocal and target voice to s3
-    vocal_path = os.path.join(STEMS_PATH, "SOURCE.wav")
+    
 
     source_s3_path, target_s3_path = upload_files_to_s3(vocal_path, input_target_voice_path, tmp_folder=TEMP_DIR)
 
@@ -247,6 +268,10 @@ def main(input_url: str, input_target_voice_path: str = "default_voice"):
     )
     #combine stems
     combine_wavs(STEMS_PATH, output_file="final_output.wav")
+
+    end_time = time()
+    elapsed_time = end_time - start_time
+    print(f"Total processing time: {elapsed_time:.2f} seconds")
 
 
 if __name__ == "__main__":
